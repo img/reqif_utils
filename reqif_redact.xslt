@@ -1,5 +1,6 @@
 <!--  -*- mode: xml; -*- -->
 <!--  img/edinburgh lab -->
+<!-- redact reqif1.2 package -->
 <xsl:stylesheet
     version="2.0"
     xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
@@ -8,33 +9,47 @@
     xsi:schemaLocation="http://www.omg.org/spec/ReqIF/20110401/reqif.xsd reqif.xsd"
     xmlns:reqif="http://www.omg.org/spec/ReqIF/20110401/reqif.xsd"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:xs="http://www.w3.org/2001/XMLSchema"
     xmlns:rm="http://www.ibm.com/rm"
     xmlns:xhtml="http://www.w3.org/1999/xhtml">
   
+  <!-- set to true to obfuscate same-as URIs -->
+  <xsl:param name="process-sameas" select="true()" as="xs:boolean"/>
+
   <xsl:output omit-xml-declaration="no" method="xml"/>
-  <!-- redact reqif1.2 package -->
 
   <xsl:key name="obfuscation" match="@LONG-NAME" use="."/>
-  <xsl:key name="value-obfuscation" match="@THE-VALUE" use="."/>
   <xsl:key name="other-content-obfuscation" match="//reqif:EMBEDDED-VALUE/@OTHER-CONTENT" use="."/>
+  <xsl:key name="value-obfuscation" match="@THE-VALUE|//rm:SAME-AS/text()" use="."/>
+
 
   <xsl:template match="//reqif:REQ-IF-HEADER/reqif:TITLE">
     <xsl:variable name="title" select="text()"/>
    <xsl:copy>
-        <xsl:value-of select="concat($title, ' (redacted)')">
+        <xsl:value-of select="concat($title, ' (redacted v0.1)')">
         </xsl:value-of>
    </xsl:copy>
 </xsl:template>
 
 
-<xsl:template match="@LONG-NAME">
+<xsl:template match="@LONG-NAME[not(
+		     . = ''
+		     or . = 'String'
+		     or . = 'Boolean'
+		     or . = 'ReqIF.ForeignDeleted'
+		     or . = 'ReqIF.ChapterName' 
+		     or . = 'ReqIF.Text'
+		     or . = 'ReqIF.ForeignDeleted'
+		     or . = 'Object Type' 
+		     )]">
         <xsl:attribute name="LONG-NAME">
             <xsl:value-of select="concat('redacted-', generate-id(key('obfuscation',.)[1]))"/>
         </xsl:attribute>
 </xsl:template>
 
 <xsl:template match="//reqif:EMBEDDED-VALUE/@OTHER-CONTENT[not(
-		        . = 'Document'
+		     . = ''
+		     or . = 'Document'
 		     or . = 'Glossary'
 		     or . = 'Collection'
 		     or . = 'Term'
@@ -56,17 +71,25 @@
         </xsl:attribute>
 </xsl:template>
 
-<xsl:template match="*[not(self::reqif:ATTRIBUTE-VALUE-DATE)]/@THE-VALUE">
+<xsl:template match="*[not(self::reqif:ATTRIBUTE-VALUE-DATE)]/@THE-VALUE[not(. = '')]">
         <xsl:attribute name="THE-VALUE">
             <xsl:value-of select="concat('redacted-', generate-id(key('value-obfuscation',.)[1]))"/>
         </xsl:attribute>
 </xsl:template>
 
-<!--<xsl:template match="*/@THE-VALUE">
-        <xsl:attribute name="THE-VALUE">
-            <xsl:value-of select="concat('redacted-', generate-id(key('value-obfuscation',.)[1]))"/>
-        </xsl:attribute>
-</xsl:template> -->
+<xsl:template match="//rm:SAME-AS">
+      <xsl:variable name="sameas" select="text()"/>
+      <xsl:copy>
+	<xsl:choose>
+	  <xsl:when test="$process-sameas">
+        <xsl:value-of select="concat('http://redacted.example.con/', generate-id(key('value-obfuscation',.)[1]))"/>
+	  </xsl:when>
+	  <xsl:otherwise>
+        <xsl:value-of select="$sameas"/>
+	  </xsl:otherwise>
+	</xsl:choose>
+   </xsl:copy>
+</xsl:template>
 
 <xsl:template match="xhtml:div//text()">
   <xsl:variable name="red" select="concat('redacted-text-', generate-id(.))"/>
